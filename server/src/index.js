@@ -4,6 +4,8 @@ import cors from 'cors'
 import multer from 'multer'
 import { parse } from 'csv-parse'
 import { createRequire } from 'module'
+import fs from 'fs/promises'
+import path from 'path'
 
 const require = createRequire(import.meta.url)
 
@@ -22,7 +24,17 @@ app.post('/api/parse', upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'file required' })
     const rows = []
     await new Promise((resolve, reject) => {
-      parse(req.file.buffer, { columns: true, skip_empty_lines: true }, (err, records) => {
+      parse(req.file.buffer, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+        bom: true,
+        // Be tolerant to rows with fewer/more fields than header
+        relax_column_count: true,
+        relax_column_count_less: true,
+        relax_column_count_more: true,
+        skip_records_with_error: true,
+      }, (err, records) => {
         if (err) return reject(err)
         rows.push(...records)
         resolve()
@@ -94,6 +106,7 @@ app.post('/api/send', async (req, res) => {
       auth: { user: smtp.user, pass: smtp.pass }
     })
     const results = []
+    const historyBatch = []
     for (const m of messages) {
       if (!m?.to) { results.push({ to: m?.to || '', error: 'missing to' }); continue }
       const info = await transporter.sendMail({
@@ -102,10 +115,60 @@ app.post('/api/send', async (req, res) => {
         subject,
         text: m.body,
       })
+      const entry = {
+        id: `${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
+        to: m.to,
+        name: m.name || '',
+        subject,
+        from,
+        provider: smtp.host,
+        messageId: info.messageId || '',
+        status: 'sent',
+        at: new Date().toISOString(),
+        // Store body and a short preview
+        body: m.body || '',
+        preview: (m.body || '').slice(0, 320),
+        meta: m.meta || null
+      }
       results.push({ to: m.to, messageId: info.messageId })
+      historyBatch.push(entry)
       await new Promise(r => setTimeout(r, 500)) // simple throttle ~2/sec
     }
+    if (historyBatch.length) await appendHistory(historyBatch)
     res.json({ sent: results.length, results })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// Simple file-backed history store
+const DATA_DIR = path.resolve(process.cwd(), 'data')
+const HISTORY_FILE = process.env.HISTORY_FILE || path.join(DATA_DIR, 'sent-log.json')
+
+async function ensureHistory() {
+  await fs.mkdir(DATA_DIR, { recursive: true })
+  try { await fs.access(HISTORY_FILE) } catch { await fs.writeFile(HISTORY_FILE, '[]', 'utf8') }
+}
+
+async function readHistory() {
+  await ensureHistory()
+  const raw = await fs.readFile(HISTORY_FILE, 'utf8')
+  try { return JSON.parse(raw) } catch { return [] }
+}
+
+async function appendHistory(items) {
+  const list = await readHistory()
+  list.push(...items)
+  await fs.writeFile(HISTORY_FILE, JSON.stringify(list, null, 2), 'utf8')
+}
+
+app.get('/api/history', async (req, res) => {
+  try {
+    const limit = Math.max(0, Math.min(1000, Number(req.query.limit) || 200))
+    const list = await readHistory()
+    // newest first
+    list.sort((a,b) => (b.at||'').localeCompare(a.at||''))
+    res.json({ count: list.length, items: list.slice(0, limit) })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }

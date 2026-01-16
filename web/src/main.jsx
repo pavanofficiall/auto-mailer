@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import { BrowserRouter, Link, Route, Routes, useNavigate } from 'react-router-dom'
 
 // Use relative paths with Vite proxy by default
 // If VITE_API_URL is set, use it; otherwise rely on dev proxy for /api
@@ -42,6 +43,8 @@ function App(){
   const [sendResults, setSendResults] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef(null)
+  const [history, setHistory] = useState([])
+  const [showHistory, setShowHistory] = useState(false)
   useEffect(() => {
     const html = document.documentElement
     const body = document.body
@@ -145,6 +148,7 @@ function App(){
           <div className="text-sm uppercase tracking-wider text-muted-foreground">YourCase</div>
           <h1 className="text-base font-medium">CSV Mailer — Draft (M0–M2)</h1>
           <div className="flex items-center gap-3">
+            <Link className="btn btn-outline h-8 px-3 text-xs" to="/history">History</Link>
             <button
               className="btn btn-outline h-8 w-8 p-0 text-foreground"
               onClick={()=>setTheme(t=> t==='dark' ? 'light' : 'dark')}
@@ -313,12 +317,90 @@ function App(){
   )
 }
 
+function HistoryPage(){
+  const [items, setItems] = useState([])
+  const [active, setActive] = useState(null)
+  useEffect(() => {
+    (async () => {
+      try { const j = await (await fetch('/api/history')).json(); setItems(j.items||[]) } catch (e) { /* noop */ }
+    })()
+  }, [])
+  return (
+    <div className="max-w-5xl mx-auto p-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">Send History</h2>
+        <Link className="btn btn-outline h-8 px-3 text-xs" to="/">Back</Link>
+      </div>
+      <div className="mt-3 overflow-auto max-h-[70vh] card p-4">
+        <table className="w-full text-sm">
+          <thead className="text-left text-muted-foreground">
+            <tr>
+              <th className="py-1 pr-3">Date</th>
+              <th className="py-1 pr-3">Time</th>
+              <th className="py-1 pr-3">Name</th>
+              <th className="py-1 pr-3">Email</th>
+              <th className="py-1 pr-3">More</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map(h => {
+              const d = new Date(h.at)
+              const dateStr = d.toLocaleDateString()
+              const timeStr = d.toLocaleTimeString()
+              return (
+                <tr key={h.id} className="border-t border-border">
+                  <td className="py-1 pr-3 whitespace-nowrap">{dateStr}</td>
+                  <td className="py-1 pr-3 whitespace-nowrap">{timeStr}</td>
+                  <td className="py-1 pr-3">
+                    {h.name ? (
+                      <span className="inline-block rounded px-2 py-0.5 bg-emerald-500 text-white">{h.name}</span>
+                    ) : '-'}
+                  </td>
+                  <td className="py-1 pr-3">{h.to}</td>
+                  <td className="py-1 pr-3"><button className="btn btn-outline h-7 px-2 text-xs" onClick={()=>setActive(h)}>More</button></td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      {active && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <div className="card max-w-2xl w-full p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-medium">Message Details</h3>
+              <button className="btn btn-outline h-8 px-3 text-xs" onClick={()=>setActive(null)}>Close</button>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-2 text-sm">
+              <div><span className="text-muted-foreground">To:</span> {active.name ? `${active.name} <${active.to}>` : active.to}</div>
+              <div><span className="text-muted-foreground">Time:</span> {new Date(active.at).toLocaleString()}</div>
+              <div><span className="text-muted-foreground">From:</span> {active.from}</div>
+              <div><span className="text-muted-foreground">Provider:</span> {active.provider}</div>
+              <div className="col-span-2"><span className="text-muted-foreground">Subject:</span> {active.subject}</div>
+              <div className="col-span-2"><span className="text-muted-foreground">Message:</span>
+                <pre className="whitespace-pre-wrap mt-1 text-xs p-2 rounded bg-muted/50">{active.body || active.preview}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Root(){
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<App />} />
+        <Route path="/history" element={<HistoryPage />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}
+
 const container = document.getElementById('root')
 if (!container) throw new Error('Root container missing')
-// Reuse existing root between HMR updates to avoid double createRoot warnings
 let root = container.__reactRoot || null
-if (!root) {
-  root = createRoot(container)
-  container.__reactRoot = root
-}
-root.render(<App />)
+if (!root) { root = createRoot(container); container.__reactRoot = root }
+root.render(<Root />)

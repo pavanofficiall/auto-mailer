@@ -5,6 +5,7 @@ web/node_modules/
 # builds
 server/.env
 server/.env.local
+server/data/
 web/.env
 web/.env.local
 web/dist/
@@ -14,4 +15,3 @@ web/build/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
