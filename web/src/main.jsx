@@ -18,7 +18,7 @@ function App(){
   const [file, setFile] = useState(null)
   const [headers, setHeaders] = useState([])
   const [sample, setSample] = useState([])
-  const [mapping, setMapping] = useState({ email: '', name: '' })
+  const [mapping, setMapping] = useState({ email: '', name: '', title: '', company: '', linkedin_url: '', website_url: '', twitter_url: '' })
   const [prompt, setPrompt] = useState('We help with fast, accurate employment-law research. Introduce briefly and request a short call next week.')
   const [preview, setPreview] = useState([])
   const [loading, setLoading] = useState(false)
@@ -46,6 +46,7 @@ function App(){
   const [history, setHistory] = useState([])
   const [showHistory, setShowHistory] = useState(false)
   const [aiInfo, setAiInfo] = useState(null)
+  const [editing, setEditing] = useState({ index: -1, text: '' })
   useEffect(() => {
     const html = document.documentElement
     const body = document.body
@@ -86,8 +87,19 @@ function App(){
       setHeaders(j.headers||[])
       setSample(j.sample||[])
       if(j.headers?.length){
-        setMapping(m => ({ ...m, email: m.email || j.headers.find(h=>/mail/i.test(h)) || j.headers[0] }))
-        setMapping(m => ({ ...m, name: m.name || j.headers.find(h=>/name/i.test(h)) || j.headers[0] }))
+        const H = j.headers
+        const find = (...pats) => H.find(h => pats.some(p=> new RegExp(p, 'i').test(h)))
+        setMapping(m => ({ ...m,
+          email: m.email || find('mail') || H[0],
+          name: m.name || find('name') || H[0],
+        }))
+        setMapping(m => ({ ...m,
+          title: m.title || find('title','designation','role'),
+          company: m.company || find('company','organisation','organization','firm'),
+          linkedin_url: m.linkedin_url || find('linkedin','linkedin_url','linkedin profile'),
+          website_url: m.website_url || find('website','url','homepage','site'),
+          twitter_url: m.twitter_url || find('twitter','x.com','handle'),
+        }))
       }
     }catch(e){ alert(e.message) }
     finally{ setLoading(false) }
@@ -216,13 +228,38 @@ function App(){
 
           <section className="card p-4">
             <h3 className="text-lg font-medium mb-2">2) Map Columns</h3>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <label className="text-sm">Email</label>
               <select className="select" value={mapping.email} onChange={e=>setMapping(m=>({ ...m, email: e.target.value }))}>
                 {headers.map(h=> <option key={h} value={h}>{h}</option> )}
               </select>
               <label className="text-sm">Name</label>
               <select className="select" value={mapping.name} onChange={e=>setMapping(m=>({ ...m, name: e.target.value }))}>
+                {headers.map(h=> <option key={h} value={h}>{h}</option> )}
+              </select>
+              <label className="text-sm">Title</label>
+              <select className="select" value={mapping.title} onChange={e=>setMapping(m=>({ ...m, title: e.target.value }))}>
+                <option value="">(none)</option>
+                {headers.map(h=> <option key={h} value={h}>{h}</option> )}
+              </select>
+              <label className="text-sm">Company</label>
+              <select className="select" value={mapping.company} onChange={e=>setMapping(m=>({ ...m, company: e.target.value }))}>
+                <option value="">(none)</option>
+                {headers.map(h=> <option key={h} value={h}>{h}</option> )}
+              </select>
+              <label className="text-sm">LinkedIn</label>
+              <select className="select" value={mapping.linkedin_url} onChange={e=>setMapping(m=>({ ...m, linkedin_url: e.target.value }))}>
+                <option value="">(none)</option>
+                {headers.map(h=> <option key={h} value={h}>{h}</option> )}
+              </select>
+              <label className="text-sm">Website</label>
+              <select className="select" value={mapping.website_url} onChange={e=>setMapping(m=>({ ...m, website_url: e.target.value }))}>
+                <option value="">(none)</option>
+                {headers.map(h=> <option key={h} value={h}>{h}</option> )}
+              </select>
+              <label className="text-sm">Twitter/X</label>
+              <select className="select" value={mapping.twitter_url} onChange={e=>setMapping(m=>({ ...m, twitter_url: e.target.value }))}>
+                <option value="">(none)</option>
                 {headers.map(h=> <option key={h} value={h}>{h}</option> )}
               </select>
             </div>
@@ -276,9 +313,39 @@ function App(){
             ) : (
               <ul className="grid gap-3">
                 {preview.map((m,i)=> (
-                  <li key={i} className="border border-border rounded-lg p-3">
+                  <li key={i} className="relative border border-border rounded-lg p-3">
                     <div className="text-xs text-muted-foreground mb-1">To: {m.to || '(no email)'} {m.name? `• ${m.name}` : ''}</div>
-                    <pre className="whitespace-pre-wrap text-sm">{m.body}</pre>
+                    {editing.index === i ? (
+                      <div className="grid gap-2">
+                        <textarea
+                          className="input h-40"
+                          value={editing.text}
+                          onChange={e=> setEditing(ed => ({ ...ed, text: e.target.value }))}
+                        />
+                        <div className="flex items-center gap-2 justify-end">
+                          <button className="btn btn-outline h-8 px-3 text-xs" onClick={()=> setEditing({ index:-1, text:'' })}>Cancel</button>
+                          <button
+                            className="btn btn-primary h-8 px-3 text-xs"
+                            onClick={()=> {
+                              setPreview(prev => prev.map((row, idx) => idx === i ? { ...row, body: editing.text } : row))
+                              setEditing({ index:-1, text:'' })
+                            }}
+                          >Done</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <pre className="whitespace-pre-wrap text-sm">{m.body}</pre>
+                        <button
+                          className="btn btn-outline h-8 w-8 p-0 absolute bottom-2 right-2"
+                          title="Edit message"
+                          aria-label="Edit message"
+                          onClick={()=> setEditing({ index:i, text: m.body || '' })}
+                        >
+                          <span aria-hidden="true">✏️</span>
+                        </button>
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>

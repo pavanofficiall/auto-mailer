@@ -52,7 +52,7 @@ app.post('/api/parse', upload.single('file'), async (req, res) => {
 
 // Personalize (dry-run): Accepts prompt + mapping + rows; returns generated messages
 app.post('/api/personalize', async (req, res) => {
-  const { prompt, rows, mapping } = req.body || {}
+  const { prompt, rows, mapping, requireAi } = req.body || {}
   if (!prompt || !rows || !Array.isArray(rows)) return res.status(400).json({ error: 'prompt and rows[] required' })
 
   const useGemini = !!process.env.GEMINI_API_KEY
@@ -69,25 +69,22 @@ app.post('/api/personalize', async (req, res) => {
 
   const results = []
   let aiUsedCount = 0
+  let lastAiError = ''
   for (const r of rows) {
     const vars = { ...r, email: r[mapping?.email] || r.email, name: r[mapping?.name] || r.name }
     let text = ''
     let usedAI = false
     if (client) {
       try {
-        const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash'
+        const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-pro'
         const model = client.getGenerativeModel({ model: modelName })
         const promptText = buildAiPrompt(prompt, vars)
-        // Attempt simple string call first
-        let resp = await model.generateContent(promptText)
+        // Preferred structured call with generation config
+        let resp = await model.generateContent({
+          contents: [{ role: 'user', parts: [{ text: promptText }]}],
+          generationConfig: { temperature: 0.7, topP: 0.95, maxOutputTokens: 220 },
+        })
         let maybe = resp && resp.response && typeof resp.response.text === 'function' ? resp.response.text() : ''
-        if (!maybe) {
-          // Attempt structured contents call
-          resp = await model.generateContent({
-            contents: [{ role: 'user', parts: [{ text: promptText }]}],
-          })
-          maybe = resp && resp.response && typeof resp.response.text === 'function' ? resp.response.text() : ''
-        }
         if (!maybe) {
           // Final attempt: REST call (works without SDK helpers)
           try {
@@ -96,6 +93,7 @@ app.post('/api/personalize', async (req, res) => {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 contents: [{ role: 'user', parts: [{ text: promptText }]}],
+                generationConfig: { temperature: 0.7, topP: 0.95, maxOutputTokens: 220 },
               })
             })
             if (rest.ok) {
@@ -103,13 +101,16 @@ app.post('/api/personalize', async (req, res) => {
               // Best-effort extract
               maybe = data?.candidates?.[0]?.content?.parts?.map(p=>p.text).join('\n') || ''
             } else {
-              console.error('Gemini REST failed:', rest.status, await rest.text().catch(()=>''))
+              const t = await rest.text().catch(()=> '')
+              console.error('Gemini REST failed:', rest.status, t)
+              lastAiError = `REST ${rest.status}: ${t.slice(0,200)}`
             }
           } catch (e) { console.error('Gemini REST error:', e) }
         }
         if (maybe) { text = maybe; usedAI = true }
       } catch (e) {
         console.error('Gemini generate failed:', e)
+        lastAiError = e?.message || String(e)
       }
     } else {
     }
@@ -118,6 +119,9 @@ app.post('/api/personalize', async (req, res) => {
     results.push({ to: (vars.email || '').trim(), name: (vars.name || '').trim(), body: (text || '').trim(), ai: usedAI })
   }
   // Always 200 with whatever we could generate; never 500 for AI issues
+  if (requireAi && aiUsedCount === 0) {
+    return res.status(502).json({ error: 'AI generation unavailable (Gemini did not return content).', detail: lastAiError || 'No AI output received.' })
+  }
   res.json({ count: results.length, ai: aiUsedCount > 0, aiCount: aiUsedCount, messages: results.slice(0, 50) })
 })
 
@@ -231,9 +235,19 @@ function fallbackTemplate(prompt, vars) {
   return lines.join('\n')
 }
 
-function buildAiPrompt(prompt, vars) {
-  const base = `You are an assistant helping draft a short, professional outreach email for a legal-tech product for employment-law use cases in India. \n\nRecipient (JSON):\n${JSON.stringify(vars, null, 2)}\n\nUser brief/instructions:\n${prompt}\n\nWrite a concise email body (120–180 words) in en-IN style. Include a subject line on the first line prefixed with \"Subject:\". Avoid repeating the brief verbatim; synthesize it. Keep it plain text (no markdown).`
-  return base
+function buildAiPrompt(userBrief, vars) {
+  return [
+    'System: You are a helpful outreach copywriter for an India‑focused legal research product (YourCase).',
+    'Constraints: 120–180 words, en‑IN tone, concise, professional, no markdown. Include a Subject line as the first line (prefix with "Subject:"). Do not repeat the user brief verbatim; synthesize it.',
+    '',
+    'Recipient (JSON):',
+    JSON.stringify(vars, null, 2),
+    '',
+    'User brief:',
+    userBrief,
+    '',
+    'Write the email now.'
+  ].join('\n')
 }
 
 const port = process.env.PORT || 4000
