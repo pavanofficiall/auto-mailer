@@ -45,6 +45,7 @@ function App(){
   const fileInputRef = useRef(null)
   const [history, setHistory] = useState([])
   const [showHistory, setShowHistory] = useState(false)
+  const [aiInfo, setAiInfo] = useState(null)
   useEffect(() => {
     const html = document.documentElement
     const body = document.body
@@ -57,6 +58,11 @@ function App(){
     body.setAttribute('data-theme', theme)
     localStorage.setItem('theme', theme)
   }, [theme])
+
+  useEffect(() => {
+    // Detect AI readiness (Gemini) for a small header badge
+    fetch('/health').then(r=>r.json()).then(j=> setAiInfo(j.ai||null)).catch(()=>{})
+  }, [])
 
   async function apiFetch(path, options){
     const r = await fetch(`${API}${path}`, options)
@@ -148,6 +154,9 @@ function App(){
           <div className="text-sm uppercase tracking-wider text-muted-foreground">YourCase</div>
           <h1 className="text-base font-medium">CSV Mailer — Draft (M0–M2)</h1>
           <div className="flex items-center gap-3">
+            {aiInfo && (
+              <span className="text-[10px] uppercase tracking-wide px-2 py-1 rounded bg-secondary text-secondary-foreground border border-border" title={`AI: ${aiInfo.provider} (${aiInfo.model||''})`}>AI: {aiInfo.provider}</span>
+            )}
             <Link className="btn btn-outline h-8 px-3 text-xs" to="/history">History</Link>
             <button
               className="btn btn-outline h-8 w-8 p-0 text-foreground"
@@ -255,7 +264,16 @@ function App(){
 
           <section className="card p-4">
             <h3 className="text-lg font-medium mb-2">4) Preview</h3>
-            {preview.length===0 ? <div className="text-sm text-muted-foreground">No preview yet.</div> : (
+            {preview.length===0 ? (
+              <div className="text-sm text-muted-foreground">
+                No preview yet.
+                {sample.length>0 && rowsForPreview().length===0 && (
+                  <>
+                    {' '}No rows passed current filters. Check “Email” mapping and try turning off “Only valid emails”.
+                  </>
+                )}
+              </div>
+            ) : (
               <ul className="grid gap-3">
                 {preview.map((m,i)=> (
                   <li key={i} className="border border-border rounded-lg p-3">

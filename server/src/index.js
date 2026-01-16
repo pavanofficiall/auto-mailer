@@ -85,7 +85,7 @@ app.post('/api/personalize', async (req, res) => {
     } else {
       text = fallbackTemplate(prompt, vars)
     }
-    results.push({ to: vars.email || '', name: vars.name || '', body: text })
+    results.push({ to: (vars.email || '').trim(), name: (vars.name || '').trim(), body: (text || '').trim() })
   }
   // Always 200 with whatever we could generate; never 500 for AI issues
   res.json({ count: results.length, ai: !!client, messages: results.slice(0, 50) })
