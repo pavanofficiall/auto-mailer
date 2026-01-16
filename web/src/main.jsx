@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import { BrowserRouter, Link, Route, Routes, useNavigate } from 'react-router-dom'
-import { Sun, Moon, Pencil, UploadCloud } from 'lucide-react'
+import { Pencil, UploadCloud } from 'lucide-react'
 
 // Use relative paths with Vite proxy by default
 // If VITE_API_URL is set, use it; otherwise rely on dev proxy for /api
@@ -172,14 +172,12 @@ function App(){
             )}
             <Link className="btn btn-outline h-8 px-3 text-xs" to="/history">History</Link>
             <button
-              className="btn btn-outline h-8 w-8 p-0.5 text-foreground rounded-full bg-muted/60 hover:bg-muted border-border"
+              className="btn btn-outline h-8 w-8 p-0 text-foreground"
               onClick={()=>setTheme(t=> t==='dark' ? 'light' : 'dark')}
               aria-label={theme==='dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               title={theme==='dark' ? 'Light mode' : 'Dark mode'}
             >
-              {theme==='dark'
-                ? <Sun size={22} strokeWidth={2.6} className="text-foreground" aria-hidden="true" />
-                : <Moon size={22} strokeWidth={2.6} className="text-foreground" aria-hidden="true" />}
+              <span className="text-base leading-none" aria-hidden="true">{theme==='dark' ? '☀️' : '🌙'}</span>
             </button>
             <div className="text-xs text-muted-foreground">v0.1.0</div>
           </div>
