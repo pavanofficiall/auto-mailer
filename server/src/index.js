@@ -68,27 +68,57 @@ app.post('/api/personalize', async (req, res) => {
   }
 
   const results = []
+  let aiUsedCount = 0
   for (const r of rows) {
     const vars = { ...r, email: r[mapping?.email] || r.email, name: r[mapping?.name] || r.name }
-    let text
+    let text = ''
+    let usedAI = false
     if (client) {
       try {
-        const model = client.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-1.5-flash' })
-        const promptText = `${prompt}\n\nRecipient:\n${JSON.stringify(vars, null, 2)}\n\nConstraints: 120-180 words, professional, en-IN.`
-        const resp = await model.generateContent(promptText)
-        const maybe = resp && resp.response && typeof resp.response.text === 'function' ? resp.response.text() : ''
-        text = maybe || fallbackTemplate(prompt, vars)
+        const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash'
+        const model = client.getGenerativeModel({ model: modelName })
+        const promptText = buildAiPrompt(prompt, vars)
+        // Attempt simple string call first
+        let resp = await model.generateContent(promptText)
+        let maybe = resp && resp.response && typeof resp.response.text === 'function' ? resp.response.text() : ''
+        if (!maybe) {
+          // Attempt structured contents call
+          resp = await model.generateContent({
+            contents: [{ role: 'user', parts: [{ text: promptText }]}],
+          })
+          maybe = resp && resp.response && typeof resp.response.text === 'function' ? resp.response.text() : ''
+        }
+        if (!maybe) {
+          // Final attempt: REST call (works without SDK helpers)
+          try {
+            const rest = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}:generateContent?key=${encodeURIComponent(process.env.GEMINI_API_KEY)}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ role: 'user', parts: [{ text: promptText }]}],
+              })
+            })
+            if (rest.ok) {
+              const data = await rest.json()
+              // Best-effort extract
+              maybe = data?.candidates?.[0]?.content?.parts?.map(p=>p.text).join('\n') || ''
+            } else {
+              console.error('Gemini REST failed:', rest.status, await rest.text().catch(()=>''))
+            }
+          } catch (e) { console.error('Gemini REST error:', e) }
+        }
+        if (maybe) { text = maybe; usedAI = true }
       } catch (e) {
         console.error('Gemini generate failed:', e)
-        text = fallbackTemplate(prompt, vars)
       }
     } else {
-      text = fallbackTemplate(prompt, vars)
     }
-    results.push({ to: (vars.email || '').trim(), name: (vars.name || '').trim(), body: (text || '').trim() })
+    if (!text) text = fallbackTemplate(prompt, vars)
+    if (usedAI) aiUsedCount++
+    results.push({ to: (vars.email || '').trim(), name: (vars.name || '').trim(), body: (text || '').trim(), ai: usedAI })
   }
   // Always 200 with whatever we could generate; never 500 for AI issues
-  res.json({ count: results.length, ai: !!client, messages: results.slice(0, 50) })
+  res.json({ count: results.length, ai: aiUsedCount > 0, aiCount: aiUsedCount, messages: results.slice(0, 50) })
 })
 
 // SMTP send (Zoho/SMTP): accepts { from, subject, messages:[{to,name,body}], smtp:{host,port,secure,user,pass} }
@@ -183,7 +213,27 @@ app.get('/api/history', async (req, res) => {
 
 function fallbackTemplate(prompt, vars) {
   const name = vars.name || 'there'
-  return `Subject: Quick hello about employment law research\n\nHi ${name},\n\n${prompt}\n\nRegards,\nTeam`
+  // Compose a short, professional outreach without echoing the prompt verbatim
+  const subject = 'Quick hello about employment‑law research'
+  const lines = [
+    `Subject: ${subject}`,
+    '',
+    `Hi ${name},`,
+    '',
+    'I work with YourCase, an India‑focused legal research assistant that helps employment‑law teams find relevant citations and draft faster.',
+    'We combine AI with a large case‑law index so you can get reliable references, summaries, and quick next‑step suggestions in minutes.',
+    '',
+    'If helpful, I can share a brief walkthrough or set up a quick call next week.',
+    '',
+    'Regards,',
+    'Team YourCase'
+  ]
+  return lines.join('\n')
+}
+
+function buildAiPrompt(prompt, vars) {
+  const base = `You are an assistant helping draft a short, professional outreach email for a legal-tech product for employment-law use cases in India. \n\nRecipient (JSON):\n${JSON.stringify(vars, null, 2)}\n\nUser brief/instructions:\n${prompt}\n\nWrite a concise email body (120–180 words) in en-IN style. Include a subject line on the first line prefixed with \"Subject:\". Avoid repeating the brief verbatim; synthesize it. Keep it plain text (no markdown).`
+  return base
 }
 
 const port = process.env.PORT || 4000
