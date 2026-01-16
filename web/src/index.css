@@ -73,3 +73,9 @@ body { @apply bg-background text-foreground; }
 .btn-outline { @apply border border-input bg-transparent hover:bg-accent hover:text-accent-foreground; }
 .input { @apply flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring; }
 .select { @apply input pr-8; }
+
+/* Emphasized drop zone visuals for home page */
+.dropzone-spotlight {
+  background-image: radial-gradient(1200px 200px at 50% 0%, hsl(var(--ring) / 0.12), transparent),
+    radial-gradient(800px 160px at 50% 100%, hsl(var(--ring) / 0.08), transparent);
+}

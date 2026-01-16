@@ -168,7 +168,11 @@ function App(){
           <section className="card p-4">
             <h3 className="text-lg font-medium mb-2">1) Upload CSV</h3>
             <div
-              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${isDragging ? 'border-primary bg-secondary/30' : 'border-border'}`}
+              className={`w-full min-h-[50vh] border-2 border-dashed rounded-xl text-center transition-all duration-300 flex flex-col items-center justify-center gap-2 select-none dropzone-spotlight
+              ${isDragging
+                ? 'border-primary ring-2 ring-primary/70 bg-gradient-to-br from-primary/10 via-secondary/20 to-transparent shadow-lg scale-[1.01]'
+                : 'border-border hover:border-primary/60 hover:ring-1 hover:ring-primary/40 hover:bg-secondary/30'}
+              `}
               onDragOver={(e)=>{ e.preventDefault(); setIsDragging(true) }}
               onDragLeave={()=> setIsDragging(false)}
               onDrop={(e)=>{ e.preventDefault(); setIsDragging(false); const f=e.dataTransfer.files?.[0]; if(f){ setFile(f) } }}
@@ -177,9 +181,12 @@ function App(){
               aria-label="Upload CSV via drag and drop"
               tabIndex={0}
             >
+              <div className="text-xl font-medium">Upload your CSV</div>
               <div className="text-sm text-muted-foreground">Drag & drop your .csv here</div>
               <div className="text-xs text-muted-foreground">or click to browse</div>
-              <div className="mt-2 text-sm">{file ? `Selected: ${file.name}` : 'No file selected'}</div>
+              <div className="mt-3 text-sm px-2 py-1 rounded bg-muted/40 border border-border">
+                {file ? `Selected: ${file.name}` : 'No file selected'}
+              </div>
               <input
                 ref={fileInputRef}
                 className="hidden"
