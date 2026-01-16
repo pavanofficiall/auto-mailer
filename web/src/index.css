@@ -67,6 +67,7 @@
 }
 
 body { @apply bg-background text-foreground; }
+svg { color: hsl(var(--foreground)); }
 .font-display { font-family: "Funnel Display", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
 .card { @apply bg-card text-card-foreground border border-border rounded-lg; }
 .btn { @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 disabled:pointer-events-none h-9 px-4 py-2; }

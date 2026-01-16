@@ -177,7 +177,9 @@ function App(){
               aria-label={theme==='dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               title={theme==='dark' ? 'Light mode' : 'Dark mode'}
             >
-              {theme==='dark' ? <Sun size={16} /> : <Moon size={16} />}
+              {theme==='dark'
+                ? <Sun size={20} strokeWidth={2.25} className="text-foreground" aria-hidden="true" />
+                : <Moon size={20} strokeWidth={2.25} className="text-foreground" aria-hidden="true" />}
             </button>
             <div className="text-xs text-muted-foreground">v0.1.0</div>
           </div>
