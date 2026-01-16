@@ -3,6 +3,9 @@ import express from 'express'
 import cors from 'cors'
 import multer from 'multer'
 import { parse } from 'csv-parse'
+import { createRequire } from 'module'
+
+const require = createRequire(import.meta.url)
 
 const app = express()
 app.use(cors())
@@ -76,7 +79,14 @@ app.post('/api/send', async (req, res) => {
     if (!from || !subject || !Array.isArray(messages) || !smtp?.host || !smtp?.user || !smtp?.pass) {
       return res.status(400).json({ error: 'from, subject, messages[], and smtp{host,user,pass} required' })
     }
-    const nodemailer = (await import('nodemailer')).default
+    // Support ESM + CJS resolution of nodemailer
+    let nodemailer
+    try {
+      nodemailer = require('nodemailer')
+    } catch (e) {
+      const mod = await import('nodemailer')
+      nodemailer = mod.default || mod
+    }
     const transporter = nodemailer.createTransport({
       host: smtp.host,
       port: Number(smtp.port) || 465,
