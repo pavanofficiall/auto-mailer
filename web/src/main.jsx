@@ -172,14 +172,14 @@ function App(){
             )}
             <Link className="btn btn-outline h-8 px-3 text-xs" to="/history">History</Link>
             <button
-              className="btn btn-outline h-8 w-8 p-0 text-foreground"
+              className="btn btn-outline h-8 w-8 p-0.5 text-foreground rounded-full bg-muted/60 hover:bg-muted border-border"
               onClick={()=>setTheme(t=> t==='dark' ? 'light' : 'dark')}
               aria-label={theme==='dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               title={theme==='dark' ? 'Light mode' : 'Dark mode'}
             >
               {theme==='dark'
-                ? <Sun size={20} strokeWidth={2.4} className="text-foreground" aria-hidden="true" />
-                : <Moon size={20} strokeWidth={2.4} className="text-foreground" aria-hidden="true" />}
+                ? <Sun size={22} strokeWidth={2.6} className="text-foreground" aria-hidden="true" />
+                : <Moon size={22} strokeWidth={2.6} className="text-foreground" aria-hidden="true" />}
             </button>
             <div className="text-xs text-muted-foreground">v0.1.0</div>
           </div>
