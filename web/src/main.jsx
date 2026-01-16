@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+// Use relative paths with Vite proxy by default
+// If VITE_API_URL is set, use it; otherwise rely on dev proxy for /api
+const API = import.meta.env.VITE_API_URL || ''
 
 function App(){
   const [theme, setTheme] = useState(() => {
@@ -51,15 +53,25 @@ function App(){
     localStorage.setItem('theme', theme)
   }, [theme])
 
+  async function apiFetch(path, options){
+    const r = await fetch(`${API}${path}`, options)
+    const ct = r.headers.get('content-type') || ''
+    if (ct.includes('application/json')) {
+      const j = await r.json()
+      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`)
+      return j
+    }
+    const txt = await r.text()
+    throw new Error(`Unexpected response (status ${r.status}). Body: ${txt.slice(0,200)}`)
+  }
+
   const handleParse = async () => {
     if(!file) return
     const fd = new FormData()
     fd.append('file', file)
     setLoading(true)
     try{
-      const r = await fetch(`${API}/api/parse`, { method: 'POST', body: fd })
-      const j = await r.json()
-      if(!r.ok) throw new Error(j.error||'parse failed')
+      const j = await apiFetch('/api/parse', { method: 'POST', body: fd })
       setHeaders(j.headers||[])
       setSample(j.sample||[])
       if(j.headers?.length){
@@ -74,12 +86,7 @@ function App(){
     setLoading(true)
     try{
       const rows = rowsForPreview()
-      const r = await fetch(`${API}/api/personalize`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, rows, mapping })
-      })
-      const j = await r.json()
-      if(!r.ok) throw new Error(j.error||'personalize failed')
+      const j = await apiFetch('/api/personalize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, rows, mapping }) })
       setPreview(j.messages||[])
     }catch(e){ alert(e.message) }
     finally{ setLoading(false) }
@@ -123,9 +130,7 @@ function App(){
         messages: preview.filter(m=> (m.to||'').trim()).map(m=> ({ to: m.to, name: m.name, body: m.body })),
         smtp: { host: smtp.host, port: Number(smtp.port)||465, secure: !!smtp.secure, user: smtp.user, pass: smtp.pass }
       }
-      const r = await fetch(`${API}/api/send`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
-      const j = await r.json()
-      if(!r.ok) throw new Error(j.error||'send failed')
+      const j = await apiFetch('/api/send', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
       setSendResults(j)
     }catch(e){ alert(e.message) }
     finally{ setSending(false) }
