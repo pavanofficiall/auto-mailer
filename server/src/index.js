@@ -16,7 +16,10 @@ app.use(express.json())
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 
 // Health
-app.get('/health', (_req, res) => res.json({ ok: true }))
+app.get('/health', (_req, res) => {
+  const gemini = !!process.env.GEMINI_API_KEY
+  res.json({ ok: true, ai: gemini ? { provider: 'gemini', model: process.env.GEMINI_MODEL || 'gemini-1.5-flash' } : null })
+})
 
 // Parse CSV and return headers + first N rows
 app.post('/api/parse', upload.single('file'), async (req, res) => {
