@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import { BrowserRouter, Link, Route, Routes, useNavigate } from 'react-router-dom'
-import { Pencil, UploadCloud } from 'lucide-react'
+import { Pencil, UploadCloud, CheckCircle2 } from 'lucide-react'
+import confetti from 'canvas-confetti'
 
 // Use relative paths with Vite proxy by default
 // If VITE_API_URL is set, use it; otherwise rely on dev proxy for /api
@@ -48,6 +49,7 @@ function App(){
   const [showHistory, setShowHistory] = useState(false)
   const [aiInfo, setAiInfo] = useState(null)
   const [editing, setEditing] = useState({ index: -1, text: '' })
+  const [showSuccess, setShowSuccess] = useState(false)
   useEffect(() => {
     const html = document.documentElement
     const body = document.body
@@ -156,9 +158,22 @@ function App(){
       }
       const j = await apiFetch('/api/send', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
       setSendResults(j)
+      if ((j?.sent||0) > 0) setShowSuccess(true)
     }catch(e){ alert(e.message) }
     finally{ setSending(false) }
   }
+
+  useEffect(() => {
+    if (!showSuccess) return
+    const end = Date.now() + 700
+    const colors = ['#16a34a', '#22c55e', '#84cc16', '#a3e635']
+    const frame = () => {
+      confetti({ particleCount: 40, angle: 60, spread: 60, origin: { x: 0 }, colors })
+      confetti({ particleCount: 40, angle: 120, spread: 60, origin: { x: 1 }, colors })
+      if (Date.now() < end) requestAnimationFrame(frame)
+    }
+    frame()
+  }, [showSuccess])
 
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-secondary/50 font-display">
@@ -226,6 +241,24 @@ function App(){
               <div className="text-sm text-muted-foreground mt-2">Detected columns: {headers.join(', ')}</div>
             )}
           </section>
+
+          {showSuccess && (
+            <div className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+              <div className="card w-full max-w-sm p-5 text-center">
+                <div className="flex items-center justify-center mb-3">
+                  <div className="rounded-full bg-emerald-500/15 text-emerald-500 p-3">
+                    <CheckCircle2 size={28} />
+                  </div>
+                </div>
+                <h4 className="text-lg font-medium">Sent successfully</h4>
+                <p className="text-sm text-muted-foreground mt-1">You can view them in the History tab.</p>
+                <div className="mt-4 flex items-center justify-center gap-2">
+                  <button className="btn btn-outline h-9 px-4 text-sm" onClick={()=> setShowSuccess(false)}>Close</button>
+                  <Link className="btn btn-primary h-9 px-4 text-sm" to="/history" onClick={()=> setShowSuccess(false)}>Open History</Link>
+                </div>
+              </div>
+            </div>
+          )}
 
           <section className="card p-4">
             <h3 className="text-lg font-medium mb-2">2) Map Columns</h3>
