@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 
@@ -40,6 +40,8 @@ function App(){
   })
   const [sending, setSending] = useState(false)
   const [sendResults, setSendResults] = useState(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const fileInputRef = useRef(null)
   useEffect(() => {
     const html = document.documentElement
     const body = document.body
@@ -161,8 +163,28 @@ function App(){
         <div className="grid gap-4 mt-4">
           <section className="card p-4">
             <h3 className="text-lg font-medium mb-2">1) Upload CSV</h3>
-            <div className="flex items-center gap-3">
-              <input className="input" type="file" accept=".csv" onChange={e=>setFile(e.target.files?.[0]||null)} />
+            <div
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${isDragging ? 'border-primary bg-secondary/30' : 'border-border'}`}
+              onDragOver={(e)=>{ e.preventDefault(); setIsDragging(true) }}
+              onDragLeave={()=> setIsDragging(false)}
+              onDrop={(e)=>{ e.preventDefault(); setIsDragging(false); const f=e.dataTransfer.files?.[0]; if(f){ setFile(f) } }}
+              onClick={()=> fileInputRef.current?.click()}
+              role="button"
+              aria-label="Upload CSV via drag and drop"
+              tabIndex={0}
+            >
+              <div className="text-sm text-muted-foreground">Drag & drop your .csv here</div>
+              <div className="text-xs text-muted-foreground">or click to browse</div>
+              <div className="mt-2 text-sm">{file ? `Selected: ${file.name}` : 'No file selected'}</div>
+              <input
+                ref={fileInputRef}
+                className="hidden"
+                type="file"
+                accept=".csv,text/csv"
+                onChange={e=>setFile(e.target.files?.[0]||null)}
+              />
+            </div>
+            <div className="flex items-center gap-3 mt-3">
               <button className="btn btn-primary" onClick={handleParse} disabled={!file || loading}>
                 {loading? 'Parsing…' : 'Parse'}
               </button>
