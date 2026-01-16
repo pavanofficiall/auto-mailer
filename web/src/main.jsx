@@ -2,8 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import { BrowserRouter, Link, Route, Routes, useNavigate } from 'react-router-dom'
-import { Pencil, UploadCloud } from 'lucide-react'
-import { BsSunFill, BsMoonStarsFill } from 'react-icons/bs'
+import { Sun, Moon, Pencil, UploadCloud } from 'lucide-react'
 
 // Use relative paths with Vite proxy by default
 // If VITE_API_URL is set, use it; otherwise rely on dev proxy for /api
@@ -179,8 +178,8 @@ function App(){
               title={theme==='dark' ? 'Light mode' : 'Dark mode'}
             >
               {theme==='dark'
-                ? <BsSunFill size={18} className="text-foreground" aria-hidden="true" />
-                : <BsMoonStarsFill size={18} className="text-foreground" aria-hidden="true" />}
+                ? <Sun size={20} strokeWidth={2.4} className="text-foreground" aria-hidden="true" />
+                : <Moon size={20} strokeWidth={2.4} className="text-foreground" aria-hidden="true" />}
             </button>
             <div className="text-xs text-muted-foreground">v0.1.0</div>
           </div>
