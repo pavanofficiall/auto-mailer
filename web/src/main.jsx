@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import { BrowserRouter, Link, Route, Routes, useNavigate } from 'react-router-dom'
+import { Sun, Moon, Pencil, UploadCloud } from 'lucide-react'
 
 // Use relative paths with Vite proxy by default
 // If VITE_API_URL is set, use it; otherwise rely on dev proxy for /api
@@ -176,7 +177,7 @@ function App(){
               aria-label={theme==='dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               title={theme==='dark' ? 'Light mode' : 'Dark mode'}
             >
-              <span className="text-base leading-none" aria-hidden="true">{theme==='dark' ? '☀️' : '🌙'}</span>
+              {theme==='dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
             <div className="text-xs text-muted-foreground">v0.1.0</div>
           </div>
@@ -202,7 +203,7 @@ function App(){
               aria-label="Upload CSV via drag and drop"
               tabIndex={0}
             >
-              <div className="text-xl font-medium">Upload your CSV</div>
+              <div className="text-xl font-medium flex items-center gap-2"><UploadCloud size={18} /> Upload your CSV</div>
               <div className="text-sm text-muted-foreground">Drag & drop your .csv here</div>
               <div className="text-xs text-muted-foreground">or click to browse</div>
               <div className="mt-3 text-sm px-2 py-1 rounded bg-muted/40 border border-border">
@@ -342,7 +343,7 @@ function App(){
                           aria-label="Edit message"
                           onClick={()=> setEditing({ index:i, text: m.body || '' })}
                         >
-                          <span aria-hidden="true">✏️</span>
+                          <Pencil size={16} />
                         </button>
                       </>
                     )}
