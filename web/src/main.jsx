@@ -195,8 +195,8 @@ function App(){
                 onChange={e=>setFile(e.target.files?.[0]||null)}
               />
             </div>
-            <div className="flex items-center gap-3 mt-3">
-              <button className="btn btn-primary" onClick={handleParse} disabled={!file || loading}>
+            <div className="mt-3">
+              <button className="btn btn-primary w-full h-11" onClick={handleParse} disabled={!file || loading}>
                 {loading? 'Parsing…' : 'Parse'}
               </button>
             </div>
