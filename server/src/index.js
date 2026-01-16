@@ -52,39 +52,43 @@ app.post('/api/parse', upload.single('file'), async (req, res) => {
 
 // Personalize (dry-run): Accepts prompt + mapping + rows; returns generated messages
 app.post('/api/personalize', async (req, res) => {
-  try {
-    const { prompt, rows, mapping } = req.body || {}
-    if (!prompt || !rows || !Array.isArray(rows)) return res.status(400).json({ error: 'prompt and rows[] required' })
-    const useGemini = !!process.env.GEMINI_API_KEY
+  const { prompt, rows, mapping } = req.body || {}
+  if (!prompt || !rows || !Array.isArray(rows)) return res.status(400).json({ error: 'prompt and rows[] required' })
 
-    let client
-    if (useGemini) {
+  const useGemini = !!process.env.GEMINI_API_KEY
+  let client
+  if (useGemini) {
+    try {
       const { GoogleGenerativeAI } = await import('@google/generative-ai')
       client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+    } catch (e) {
+      console.error('Gemini SDK load failed:', e)
+      client = undefined
     }
+  }
 
-    const results = []
-    for (const r of rows) {
-      const vars = { ...r, email: r[mapping?.email] || r.email, name: r[mapping?.name] || r.name }
-      let text
-      if (client) {
-        try {
-          const model = client.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-1.5-flash' })
-          const promptText = `${prompt}\n\nRecipient:\n${JSON.stringify(vars, null, 2)}\n\nConstraints: 120-180 words, professional, en-IN.`
-          const resp = await model.generateContent(promptText)
-          text = resp.response.text()
-        } catch (e) {
-          text = fallbackTemplate(prompt, vars)
-        }
-      } else {
+  const results = []
+  for (const r of rows) {
+    const vars = { ...r, email: r[mapping?.email] || r.email, name: r[mapping?.name] || r.name }
+    let text
+    if (client) {
+      try {
+        const model = client.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-1.5-flash' })
+        const promptText = `${prompt}\n\nRecipient:\n${JSON.stringify(vars, null, 2)}\n\nConstraints: 120-180 words, professional, en-IN.`
+        const resp = await model.generateContent(promptText)
+        const maybe = resp && resp.response && typeof resp.response.text === 'function' ? resp.response.text() : ''
+        text = maybe || fallbackTemplate(prompt, vars)
+      } catch (e) {
+        console.error('Gemini generate failed:', e)
         text = fallbackTemplate(prompt, vars)
       }
-      results.push({ to: vars.email || '', name: vars.name || '', body: text })
+    } else {
+      text = fallbackTemplate(prompt, vars)
     }
-    res.json({ count: results.length, messages: results.slice(0, 50) })
-  } catch (e) {
-    res.status(500).json({ error: e.message })
+    results.push({ to: vars.email || '', name: vars.name || '', body: text })
   }
+  // Always 200 with whatever we could generate; never 500 for AI issues
+  res.json({ count: results.length, ai: !!client, messages: results.slice(0, 50) })
 })
 
 // SMTP send (Zoho/SMTP): accepts { from, subject, messages:[{to,name,body}], smtp:{host,port,secure,user,pass} }
