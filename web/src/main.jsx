@@ -9,14 +9,36 @@ import confetti from 'canvas-confetti'
 // If VITE_API_URL is set, use it; otherwise rely on dev proxy for /api
 const API = import.meta.env.VITE_API_URL || ''
 
-function App(){
+function useThemeMode(){
   const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem('theme')
-    if (saved === 'light' || saved === 'dark') return saved
-    // fallback to system preference, default dark
+    if (typeof window === 'undefined') return 'dark'
+    try {
+      const saved = window.localStorage.getItem('theme')
+      if (saved === 'light' || saved === 'dark') return saved
+    } catch {}
     const prefersDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
     return prefersDark ? 'dark' : 'dark'
   })
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const html = document.documentElement
+    const body = document.body
+    if (theme === 'dark') {
+      html.classList.add('dark'); body.classList.add('dark')
+    } else {
+      html.classList.remove('dark'); body.classList.remove('dark')
+    }
+    html.setAttribute('data-theme', theme)
+    body.setAttribute('data-theme', theme)
+    try { window.localStorage.setItem('theme', theme) } catch {}
+  }, [theme])
+
+  return [theme, setTheme]
+}
+
+function App(){
+  const [theme, setTheme] = useThemeMode()
   const [file, setFile] = useState(null)
   const [headers, setHeaders] = useState([])
   const [sample, setSample] = useState([])
@@ -50,18 +72,6 @@ function App(){
   const [aiInfo, setAiInfo] = useState(null)
   const [editing, setEditing] = useState({ index: -1, text: '' })
   const [showSuccess, setShowSuccess] = useState(false)
-  useEffect(() => {
-    const html = document.documentElement
-    const body = document.body
-    if (theme === 'dark') {
-      html.classList.add('dark'); body.classList.add('dark')
-    } else {
-      html.classList.remove('dark'); body.classList.remove('dark')
-    }
-    html.setAttribute('data-theme', theme)
-    body.setAttribute('data-theme', theme)
-    localStorage.setItem('theme', theme)
-  }, [theme])
 
   useEffect(() => {
     // Detect AI readiness (Gemini) for a small header badge
@@ -185,6 +195,7 @@ function App(){
             {aiInfo && (
               <span className="text-[10px] uppercase tracking-wide px-2 py-1 rounded bg-secondary text-secondary-foreground border border-border" title={`AI: ${aiInfo.provider} (${aiInfo.model||''})`}>AI: {aiInfo.provider}</span>
             )}
+            <Link className="btn btn-outline h-8 px-3 text-xs" to="/linkedin">LinkedIn Scrapper</Link>
             <Link className="btn btn-outline h-8 px-3 text-xs" to="/history">History</Link>
             <button
               className="btn btn-outline h-8 w-8 p-0 text-foreground"
@@ -437,7 +448,74 @@ function App(){
               </div>
             )}
           </section>
+
         </div>
+      </div>
+    </div>
+  )
+}
+
+function LinkedinScrapperPage(){
+  const [theme, setTheme] = useThemeMode()
+  const [query, setQuery] = useState('')
+  const [notes, setNotes] = useState('')
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    if (!query.trim()) {
+      alert('Add keywords or LinkedIn profile URLs first')
+      return
+    }
+    alert('LinkedIn scrapper prototype coming soon')
+  }
+
+  return (
+    <div className="min-h-screen bg-background text-foreground selection:bg-secondary/50 font-display">
+      <header className="sticky top-0 z-10 border-b border-border bg-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/50">
+        <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
+          <div className="text-sm uppercase tracking-wider text-muted-foreground">YourCase</div>
+          <h1 className="text-base font-medium">LinkedIn Scrapper</h1>
+          <div className="flex items-center gap-3">
+            <Link className="btn btn-outline h-8 px-3 text-xs" to="/">Mailer</Link>
+            <Link className="btn btn-outline h-8 px-3 text-xs" to="/history">History</Link>
+            <button
+              className="btn btn-outline h-8 w-8 p-0 text-foreground"
+              onClick={()=>setTheme(t=> t==='dark' ? 'light' : 'dark')}
+              aria-label={theme==='dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={theme==='dark' ? 'Light mode' : 'Dark mode'}
+            >
+              <span className="text-base leading-none" aria-hidden="true">{theme==='dark' ? '☀️' : '🌙'}</span>
+            </button>
+          </div>
+        </div>
+      </header>
+      <div className="max-w-3xl mx-auto p-6">
+        <form className="card p-5 grid gap-4" onSubmit={handleSubmit}>
+          <p className="text-sm text-muted-foreground">Plan your LinkedIn scrape before running enrichment. Add keywords or paste profile URLs you want to capture.</p>
+          <label className="text-sm">Keywords or profile URLs
+            <textarea
+              className="input mt-1 h-32"
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              placeholder={`employment lawyer partners mumbai\nlinkedin.com/in/example`}
+            />
+          </label>
+          <label className="text-sm">Notes (optional)
+            <textarea
+              className="input mt-1 h-24"
+              value={notes}
+              onChange={event => setNotes(event.target.value)}
+              placeholder="remind scrapper to include education section"
+            />
+          </label>
+          <div className="flex items-center gap-3">
+            <button className="btn btn-outline h-10 px-4" type="button" onClick={()=>{ setQuery(''); setNotes('') }}>Clear</button>
+            <button className="btn btn-primary h-10 px-4" type="submit">Preview scrape plan</button>
+          </div>
+          <div className="text-xs text-muted-foreground border border-border rounded-lg p-3 bg-muted/40">
+            Output will suggest query blocks and profile snapshots once backend enrichment is wired up.
+          </div>
+        </form>
       </div>
     </div>
   )
@@ -520,6 +598,7 @@ function Root(){
       <Routes>
         <Route path="/" element={<App />} />
         <Route path="/history" element={<HistoryPage />} />
+        <Route path="/linkedin" element={<LinkedinScrapperPage />} />
       </Routes>
     </BrowserRouter>
   )
